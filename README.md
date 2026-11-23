@@ -26,21 +26,4 @@ Aplikasi Web **Point of Sale (POS) Kasir & Manajemen Kios** berbasis PHP Native 
 
 ---
 
-## 🔑 Akun Login Default
 
-| Role | Username | Password | Keterangan |
-| :--- | :--- | :--- | :--- |
-| **Admin** | `cendekia` | `pastijuara1` | Administrator Utama |
-| **Admin** | `admin` | `admin` | Administrator Alternatif |
-| **Kasir** | `kasir` | `kasir123` | Petugas Kasir 1 |
-| **Kasir** | `petugas` | `pastijuara1` | Petugas Kasir 2 |
-
----
-
-## 💻 Detail Server & Database
-
-- **Server IP:** `172.16.5.11`
-- **SSH User/Pass:** `cendekia` / `pastijuara1`
-- **Penyimpanan:** `/var/www/html` ter-mount (*bind-mount*) ke SSD `/data/www/html`
-- **Database:** MariaDB `kios_db` di `/data/mysql`
-- **Akses Web:** `http://172.16.5.11/`
