@@ -541,6 +541,73 @@ $active_theme_data = function_exists('get_current_theme_data') ? get_current_the
     </div>
 </div>
 
+    <!-- KARTU 4: PEMBARUAN SISTEM OTOMATIS (GIT & GITHUB) -->
+    <div class="col-12 mt-4">
+        <div class="card shadow-sm rounded-4 border-secondary border-opacity-50">
+            <div class="card-header bg-dark bg-opacity-75 border-secondary border-opacity-50 py-3 px-4 d-flex justify-content-between align-items-center flex-wrap gap-2">
+                <div class="d-flex align-items-center gap-2">
+                    <span class="badge bg-success bg-opacity-25 text-success p-2 rounded-3 fs-6">
+                        <i class="bi bi-cloud-arrow-down-fill"></i>
+                    </span>
+                    <div>
+                        <h6 class="fw-bold text-white mb-0">Pembaruan Sistem (System Update)</h6>
+                        <small class="text-secondary">Cek dan sinkronisasikan aplikasi langsung dari GitHub (Raspberry Pi & Server)</small>
+                    </div>
+                </div>
+                <div class="d-flex align-items-center gap-2">
+                    <span class="badge bg-dark border border-secondary text-info font-monospace px-3 py-2" id="badgeCommitLocal">
+                        <i class="bi bi-git me-1"></i>Memuat Versi...
+                    </span>
+                    <button type="button" class="btn btn-outline-info btn-sm rounded-pill px-3 shadow-sm" id="btnCheckUpdate" onclick="checkSystemUpdate()">
+                        <i class="bi bi-arrow-repeat me-1" id="iconCheckUpdate"></i> Cek Pembaruan
+                    </button>
+                </div>
+            </div>
+            <div class="card-body p-4">
+                <div class="row g-3 align-items-center">
+                    <div class="col-md-7">
+                        <div class="p-3 rounded-3 bg-dark bg-opacity-50 border border-secondary border-opacity-25">
+                            <div class="d-flex justify-content-between align-items-center mb-2 pb-2 border-bottom border-secondary border-opacity-25">
+                                <span class="text-secondary small">Versi Lokal Terpasang</span>
+                                <span class="font-monospace fw-bold text-white small" id="txtLocalCommit">-</span>
+                            </div>
+                            <div class="d-flex justify-content-between align-items-center mb-2 pb-2 border-bottom border-secondary border-opacity-25">
+                                <span class="text-secondary small">Waktu Pembaruan Terakhir</span>
+                                <span class="text-white small" id="txtLocalDate">-</span>
+                            </div>
+                            <div class="d-flex justify-content-between align-items-start">
+                                <span class="text-secondary small me-2">Catatan Perubahan (Commit)</span>
+                                <span class="text-light small text-end fst-italic" id="txtLocalMsg">-</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-5">
+                        <div id="updateStatusAlert" class="alert alert-secondary border-0 rounded-4 p-3 mb-0">
+                            <div class="d-flex align-items-center gap-2 mb-2">
+                                <i class="bi bi-shield-check text-info fs-4" id="iconStatusUpdate"></i>
+                                <div>
+                                    <h6 class="fw-bold mb-0 text-white" id="titleStatusUpdate">Status Sistem</h6>
+                                    <small class="text-secondary" id="descStatusUpdate">Klik tombol "Cek Pembaruan" untuk memeriksa update di GitHub.</small>
+                                </div>
+                            </div>
+                            <div id="boxActionUpdate" class="d-none mt-3 pt-2 border-top border-secondary border-opacity-25 text-end">
+                                <button type="button" class="btn btn-success btn-sm rounded-pill px-3 fw-bold shadow" id="btnExecuteUpdate" onclick="executeSystemUpdate()">
+                                    <i class="bi bi-download me-1"></i> Pasang Pembaruan Sekarang
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Log Output Panel (Hidden by default) -->
+                <div id="boxUpdateLog" class="d-none mt-3">
+                    <label class="form-label text-secondary small fw-semibold mb-1">Log Proses Pembaruan:</label>
+                    <pre class="bg-black text-success p-3 rounded-3 font-monospace small mb-0 border border-secondary border-opacity-25" style="max-height: 180px; overflow-y: auto;" id="txtUpdateLog"></pre>
+                </div>
+            </div>
+        </div>
+    </div>
+
 <!-- Modal Pengaturan IP Server Admin -->
 <div class="modal fade" id="modalAdminServerSetting" tabindex="-1" aria-labelledby="modalAdminServerSettingLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
@@ -739,6 +806,154 @@ async function saveAndApplyAdminIp() {
 function rtrimUrl(url) {
     return url.replace(/\/+$/, '');
 }
+
+// ==========================================
+// QIOS SYSTEM UPDATER LOGIC
+// ==========================================
+async function loadLocalGitInfo() {
+    try {
+        const resp = await fetch('api_updater.php?action=info', { credentials: 'same-origin' });
+        const res = await resp.json();
+        if (res.status === 'success' && res.data) {
+            const d = res.data;
+            document.getElementById('badgeCommitLocal').innerHTML = '<i class="bi bi-git me-1"></i>Commit: ' + d.commit + ' (' + d.branch + ')';
+            document.getElementById('txtLocalCommit').textContent = d.commit + ' [' + d.branch + ']';
+            document.getElementById('txtLocalDate').textContent = d.date;
+            document.getElementById('txtLocalMsg').textContent = d.message;
+        }
+    } catch (e) {
+        console.error('Gagal memuat info git lokal:', e);
+    }
+}
+
+async function checkSystemUpdate() {
+    const btn = document.getElementById('btnCheckUpdate');
+    const icon = document.getElementById('iconCheckUpdate');
+    const alertBox = document.getElementById('updateStatusAlert');
+    const titleBox = document.getElementById('titleStatusUpdate');
+    const descBox = document.getElementById('descStatusUpdate');
+    const iconBox = document.getElementById('iconStatusUpdate');
+    const boxAction = document.getElementById('boxActionUpdate');
+
+    btn.disabled = true;
+    icon.className = 'spinner-border spinner-border-sm me-1';
+    
+    alertBox.className = 'alert alert-info border-0 rounded-4 p-3 mb-0';
+    iconBox.className = 'bi bi-arrow-repeat text-info fs-4';
+    titleBox.textContent = 'Memeriksa GitHub...';
+    descBox.textContent = 'Menghubungkan ke repositori GitHub programerbiasa/QiOS...';
+    boxAction.classList.add('d-none');
+
+    try {
+        const resp = await fetch('api_updater.php?action=check', { credentials: 'same-origin' });
+        const res = await resp.json();
+
+        if (res.status === 'success') {
+            if (res.local) {
+                document.getElementById('badgeCommitLocal').innerHTML = '<i class="bi bi-git me-1"></i>Commit: ' + res.local.commit + ' (' + res.local.branch + ')';
+                document.getElementById('txtLocalCommit').textContent = res.local.commit + ' [' + res.local.branch + ']';
+                document.getElementById('txtLocalDate').textContent = res.local.date;
+                document.getElementById('txtLocalMsg').textContent = res.local.message;
+            }
+
+            if (res.has_update) {
+                alertBox.className = 'alert alert-warning border-0 rounded-4 p-3 mb-0';
+                iconBox.className = 'bi bi-exclamation-circle-fill text-warning fs-4';
+                titleBox.textContent = 'Pembaruan Tersedia!';
+                descBox.innerHTML = 'Versi baru ditemukan di GitHub: <strong>' + res.remote.commit + '</strong><br>' +
+                                    '<span class="small text-white">' + res.remote.message + '</span> (' + res.remote.date + ')';
+                boxAction.classList.remove('d-none');
+            } else {
+                alertBox.className = 'alert alert-success border-0 rounded-4 p-3 mb-0';
+                iconBox.className = 'bi bi-check-circle-fill text-success fs-4';
+                titleBox.textContent = 'Sistem Terkini';
+                descBox.textContent = 'Selamat! Aplikasi QiOS Anda sudah menggunakan versi paling mutakhir.';
+                boxAction.classList.add('d-none');
+            }
+        } else {
+            alertBox.className = 'alert alert-danger border-0 rounded-4 p-3 mb-0';
+            iconBox.className = 'bi bi-x-circle-fill text-danger fs-4';
+            titleBox.textContent = 'Pengecekan Gagal';
+            descBox.textContent = res.message || 'Tidak dapat menghubungi server GitHub.';
+            boxAction.classList.add('d-none');
+        }
+    } catch (e) {
+        alertBox.className = 'alert alert-danger border-0 rounded-4 p-3 mb-0';
+        iconBox.className = 'bi bi-x-circle-fill text-danger fs-4';
+        titleBox.textContent = 'Koneksi Terputus';
+        descBox.textContent = 'Pastikan server terhubung ke internet. Error: ' + e.message;
+        boxAction.classList.add('d-none');
+    } finally {
+        btn.disabled = false;
+        icon.className = 'bi bi-arrow-repeat me-1';
+    }
+}
+
+async function executeSystemUpdate() {
+    if (!confirm('Apakah Anda yakin ingin memperbarui aplikasi QiOS sekarang? Sistem akan menyinkronkan file dari GitHub.')) {
+        return;
+    }
+
+    const btn = document.getElementById('btnExecuteUpdate');
+    const logBox = document.getElementById('boxUpdateLog');
+    const logText = document.getElementById('txtUpdateLog');
+    const alertBox = document.getElementById('updateStatusAlert');
+    const titleBox = document.getElementById('titleStatusUpdate');
+    const descBox = document.getElementById('descStatusUpdate');
+    const iconBox = document.getElementById('iconStatusUpdate');
+
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Mengunduh & Memasang Update...';
+
+    logBox.classList.remove('d-none');
+    logText.textContent = 'Memulai proses update sistem...\nMenghubungi repositori GitHub...\n';
+
+    try {
+        const resp = await fetch('api_updater.php', {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: 'action=update'
+        });
+        const res = await resp.json();
+
+        if (res.log) {
+            logText.textContent += res.log + '\n';
+        }
+
+        if (res.status === 'success') {
+            alertBox.className = 'alert alert-success border-0 rounded-4 p-3 mb-0';
+            iconBox.className = 'bi bi-check-circle-fill text-success fs-4';
+            titleBox.textContent = 'Pembaruan Berhasil!';
+            descBox.textContent = res.message || 'Sistem telah berhasil diperbarui.';
+            btn.innerHTML = '<i class="bi bi-check me-1"></i> Selesai!';
+
+            setTimeout(() => {
+                window.location.reload();
+            }, 2000);
+        } else {
+            alertBox.className = 'alert alert-danger border-0 rounded-4 p-3 mb-0';
+            iconBox.className = 'bi bi-exclamation-triangle-fill text-danger fs-4';
+            titleBox.textContent = 'Pembaruan Gagal';
+            descBox.textContent = res.message || 'Gagal menerapkan update.';
+            btn.disabled = false;
+            btn.innerHTML = '<i class="bi bi-arrow-clockwise me-1"></i> Coba Lagi';
+        }
+    } catch (e) {
+        logText.textContent += 'Error: ' + e.message + '\n';
+        alertBox.className = 'alert alert-danger border-0 rounded-4 p-3 mb-0';
+        iconBox.className = 'bi bi-x-circle-fill text-danger fs-4';
+        titleBox.textContent = 'Gagal Memproses Update';
+        descBox.textContent = 'Terjadi kesalahan jaringan atau server timeout.';
+        btn.disabled = false;
+        btn.innerHTML = '<i class="bi bi-arrow-clockwise me-1"></i> Coba Lagi';
+    }
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    loadLocalGitInfo();
+});
+
 </script>
 
 <?php require_once __DIR__ . '/includes/admin_footer.php'; ?>
