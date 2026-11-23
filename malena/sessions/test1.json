@@ -1,0 +1,12 @@
+[
+  {
+    "sender": "user",
+    "text": "hitung 125 x 80",
+    "time": "19:52"
+  },
+  {
+    "sender": "malena",
+    "text": "Hasil perhitungan dari `125 * 80` adalah **10.000**.",
+    "time": "19:52"
+  }
+]

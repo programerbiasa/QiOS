@@ -1,0 +1,83 @@
+/* =======================================================
+   Kios Digital & POS Kasir - Compact & Spacious Theme
+   ======================================================= */
+
+:root {
+    --primary-color: #1e3a8a;
+    --primary-hover: #1e40af;
+    --accent-gold: #d97706;
+    --accent-teal: #0d9488;
+    --dark-bg: #090d16;
+    --card-bg: #111827;
+    --card-border: #334155;
+    --text-main: #f1f5f9;
+    --text-muted: #94a3b8;
+}
+
+body {
+    background-color: var(--dark-bg);
+    color: var(--text-main);
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    font-size: 0.86rem; /* Lebih ringkas */
+    line-height: 1.4;
+    min-height: 100vh;
+}
+
+/* Tabel Lebih Compact & Ramping */
+.table-hover tbody tr:hover {
+    background-color: rgba(56, 189, 248, 0.08) !important;
+}
+
+.table th, .table td {
+    padding: 0.45rem 0.65rem !important;
+    vertical-align: middle;
+}
+
+/* Card Padding Compact */
+.card {
+    border-color: var(--card-border);
+}
+
+.stat-card {
+    padding: 0.85rem 1rem !important;
+}
+
+.stat-icon {
+    width: 42px !important;
+    height: 42px !important;
+    font-size: 1.3rem !important;
+}
+
+/* Modal Compact */
+.modal-content {
+    border-radius: 14px;
+}
+
+.modal-header {
+    padding: 0.75rem 1.25rem !important;
+}
+
+.modal-body {
+    padding: 1.25rem !important;
+}
+
+.modal-footer {
+    padding: 0.6rem 1.25rem !important;
+}
+
+/* Form Controls Compact */
+.form-control, .form-select {
+    padding: 0.35rem 0.65rem;
+    font-size: 0.85rem;
+}
+
+/* Print Clean */
+@media print {
+    body {
+        background: #ffffff !important;
+        color: #000000 !important;
+    }
+    .no-print {
+        display: none !important;
+    }
+}
