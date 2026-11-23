@@ -7,7 +7,20 @@
             <strong class="text-white"><?= e(function_exists('get_app_name') ? get_app_name() : 'QiOS Cendekia') ?></strong> &copy; <?= date('Y') ?>. Hak Cipta Dilindungi.
         </div>
         <div>
-            Status Server Database: <span class="badge bg-success text-white">Online (172.16.5.11)</span>
+            <span class="d-inline-flex align-items-center gap-2">
+            <span class="text-secondary">Server:</span>
+            <span class="badge bg-secondary font-monospace px-2 py-1" id="footerServerIp" title="Alamat IP Web Server"><?= e($_SERVER['HTTP_HOST'] ?? '127.0.0.1') ?></span>
+            <span class="text-secondary ms-1">Database:</span>
+            <?php 
+                $active_db = $GLOBALS['active_db_host'] ?? ($connected_host ?? ($db_host ?? '127.0.0.1'));
+                $is_db_ok = isset($pdo) && ($pdo instanceof PDO);
+            ?>
+            <span class="badge <?= $is_db_ok ? 'bg-success text-white' : 'bg-danger text-white' ?> px-2 py-1 shadow-sm d-inline-flex align-items-center gap-1 font-monospace" id="footerDbStatus">
+                <span class="spinner-grow spinner-grow-sm me-1 d-none" id="footerDbPulse" style="width: 7px; height: 7px;"></span>
+                <i class="bi <?= $is_db_ok ? 'bi-check-circle-fill' : 'bi-x-circle-fill' ?>" id="footerDbIcon"></i>
+                <span id="footerDbText"><?= $is_db_ok ? 'Online (' . e($active_db) . ')' : 'Offline' ?></span>
+            </span>
+        </span>
         </div>
     </div>
 </footer>
@@ -178,6 +191,45 @@
         initOrderNotifier();
     }
 })();
+
+    // ==========================================
+    // Real-Time Server & Database Status Poller
+    // ==========================================
+    function updateRealtimeServerStatus() {
+        const statusUrl = '<?= dirname($_SERVER['SCRIPT_NAME']) === '/' ? '' : dirname($_SERVER['SCRIPT_NAME']) ?>/../api/server_status.php';
+        fetch(statusUrl, { credentials: 'same-origin' })
+            .then(res => res.json())
+            .then(data => {
+                if (data && data.status === 'success') {
+                    const srvIp = document.getElementById('footerServerIp');
+                    const dbStatus = document.getElementById('footerDbStatus');
+                    const dbIcon = document.getElementById('footerDbIcon');
+                    const dbText = document.getElementById('footerDbText');
+
+                    if (srvIp && data.web_host) {
+                        srvIp.textContent = data.web_host;
+                    }
+
+                    if (dbStatus && dbIcon && dbText && data.db) {
+                        if (data.db.online) {
+                            dbStatus.className = 'badge bg-success text-white px-2 py-1 shadow-sm d-inline-flex align-items-center gap-1 font-monospace';
+                            dbIcon.className = 'bi bi-check-circle-fill text-white';
+                            dbText.textContent = 'Online (' + data.db.host + ')';
+                        } else {
+                            dbStatus.className = 'badge bg-danger text-white px-2 py-1 shadow-sm d-inline-flex align-items-center gap-1 font-monospace';
+                            dbIcon.className = 'bi bi-x-circle-fill text-white';
+                            dbText.textContent = 'Offline (' + data.db.host + ')';
+                        }
+                    }
+                }
+            })
+            .catch(() => {});
+    }
+
+    // Jalankan segera dan refresh status setiap 15 detik secara realtime
+    updateRealtimeServerStatus();
+    setInterval(updateRealtimeServerStatus, 15000);
+
 </script>
 </body>
 </html>
