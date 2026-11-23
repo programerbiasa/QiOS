@@ -25,10 +25,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $password     = $_POST['password'] ?? '';
         $role         = $_POST['role'] ?? 'user';
 
-        // Hanya Superadmin yang boleh membuat akun Superadmin
-        if ($role === 'superadmin' && $admin_user['role'] !== 'superadmin') {
-            $role = 'admin';
-        }
+        // Admin maupun Superadmin diizinkan membuat akun role Superadmin
         if (!in_array($role, ['superadmin', 'admin', 'user', 'kasir'])) {
             $role = 'user';
         }
@@ -76,15 +73,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $_SESSION['flash_error'] = 'Data yang dikirim tidak valid!';
         } else {
             $role = $_POST['role'] ?? $target_user['role'];
-            // Jika bukan superadmin, tidak boleh mengubah role ke superadmin atau mengedit akun superadmin
-            if ($role === 'superadmin' && $admin_user['role'] !== 'superadmin') {
-                $role = $target_user['role'];
-            }
-            if ($target_user['role'] === 'superadmin' && $admin_user['role'] !== 'superadmin') {
-                $_SESSION['flash_error'] = 'Hanya Super Administrator yang dapat mengubah data Super Admin!';
-                header('Location: users.php');
-                exit;
-            }
+            // Admin dan Superadmin boleh mengubah data / menaikkan role pengguna
             if (!in_array($role, ['superadmin', 'admin', 'user', 'kasir'])) {
                 $role = $target_user['role'];
             }
@@ -593,9 +582,7 @@ require_once __DIR__ . '/includes/admin_header.php';
                         <select class="form-select bg-dark border-secondary text-white" id="create_role" name="role">
                             <option value="user" selected>User (Akses Kasir POS)</option>
                             <option value="admin">Administrator (Panel Kontrol Sistem)</option>
-                            <?php if ($admin_user['role'] === 'superadmin'): ?>
-                                <option value="superadmin">Super Administrator (Akses Penuh &amp; Lihat Password)</option>
-                            <?php endif; ?>
+                            <option value="superadmin">Super Administrator (Akses Penuh)</option>
                         </select>
                     </div>
 
@@ -680,9 +667,7 @@ require_once __DIR__ . '/includes/admin_header.php';
                         <select class="form-select bg-dark border-secondary text-white" id="edit_role" name="role">
                             <option value="user">User (Akses Kasir POS)</option>
                             <option value="admin">Administrator (Panel Kontrol Sistem)</option>
-                            <?php if ($admin_user['role'] === 'superadmin'): ?>
-                                <option value="superadmin">Super Administrator (Akses Penuh &amp; Lihat Password)</option>
-                            <?php endif; ?>
+                            <option value="superadmin">Super Administrator (Akses Penuh)</option>
                         </select>
                     </div>
 
