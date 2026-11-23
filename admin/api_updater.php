@@ -201,38 +201,114 @@ switch ($action) {
         $log = [];
         $success = false;
 
-        // Cek apakah .git ada
-        if (!is_dir($root_dir . '/.git')) {
-            // Inisialisasi repo jika belum ada
-            $init = run_cmd('git init', $root_dir);
-            $log[] = "git init: " . ($init['stdout'] ?: $init['stderr']);
-            $remote = run_cmd('git remote add origin https://github.com/programerbiasa/QiOS.git', $root_dir);
-            $log[] = "git remote add origin: " . ($remote['stdout'] ?: $remote['stderr']);
-        }
+        // Cek ketersediaan command git di sistem
+        $git_check = run_cmd('git --version', $root_dir);
+        $has_git_cli = ($git_check['code'] === 0);
 
-        // Ambil branch aktif
-        $branch_cmd = run_cmd('git rev-parse --abbrev-ref HEAD', $root_dir);
-        $branch = ($branch_cmd['code'] === 0 && !empty($branch_cmd['stdout'])) ? $branch_cmd['stdout'] : 'main';
-        if ($branch === 'HEAD') $branch = 'main';
+        if ($has_git_cli) {
+            // Metode 1: Menggunakan Git CLI
+            if (!is_dir($root_dir . '/.git')) {
+                $init = run_cmd('git init', $root_dir);
+                $log[] = "git init: " . ($init['stdout'] ?: $init['stderr']);
+                $remote = run_cmd('git remote add origin https://github.com/programerbiasa/QiOS.git', $root_dir);
+                $log[] = "git remote add origin: " . ($remote['stdout'] ?: $remote['stderr']);
+            }
 
-        // 1. Fetch dari origin
-        $fetch = run_cmd("git fetch origin {$branch}", $root_dir);
-        $log[] = "Fetch origin: " . ($fetch['stdout'] ?: ($fetch['stderr'] ?: 'OK'));
+            $branch_cmd = run_cmd('git rev-parse --abbrev-ref HEAD', $root_dir);
+            $branch = ($branch_cmd['code'] === 0 && !empty($branch_cmd['stdout'])) ? $branch_cmd['stdout'] : 'main';
+            if ($branch === 'HEAD') $branch = 'main';
 
-        // 2. Reset/Pull ke origin/<branch>
-        // Menggunakan fetch + reset --hard origin/<branch> adalah best-practice untuk production server kios
-        // agar tidak terjadi merge conflict saat update dari remote.
-        $pull = run_cmd("git reset --hard origin/{$branch}", $root_dir);
-        $log[] = "Reset & Apply Update: " . ($pull['stdout'] ?: $pull['stderr']);
+            $fetch = run_cmd("git fetch origin {$branch}", $root_dir);
+            $log[] = "Fetch origin: " . ($fetch['stdout'] ?: ($fetch['stderr'] ?: 'OK'));
 
-        if ($pull['code'] === 0) {
-            $success = true;
-        } else {
-            // Coba pull standar
-            $pull_std = run_cmd("git pull origin {$branch}", $root_dir);
-            $log[] = "Fallback git pull: " . ($pull_std['stdout'] ?: $pull_std['stderr']);
-            if ($pull_std['code'] === 0) {
+            $pull = run_cmd("git reset --hard origin/{$branch}", $root_dir);
+            $log[] = "Reset & Apply Update: " . ($pull['stdout'] ?: $pull['stderr']);
+
+            if ($pull['code'] === 0) {
                 $success = true;
+            } else {
+                $pull_std = run_cmd("git pull origin {$branch}", $root_dir);
+                $log[] = "Fallback git pull: " . ($pull_std['stdout'] ?: $pull_std['stderr']);
+                if ($pull_std['code'] === 0) {
+                    $success = true;
+                }
+            }
+        } else {
+            // Metode 2: Fallback Tanpa Git CLI (Unduh & Ekstrak Zip GitHub Langsung)
+            $log[] = "Git CLI tidak terpasang di OS server. Menggunakan mode Direct Zip Stream...";
+            $zip_url = "https://github.com/programerbiasa/QiOS/archive/refs/heads/main.zip";
+            $zip_tmp = sys_get_temp_dir() . '/qios_update_' . time() . '.zip';
+
+            $ch = curl_init();
+            curl_setopt($ch, CURLOPT_URL, $zip_url);
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+            curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
+            curl_setopt($ch, CURLOPT_USERAGENT, 'QiOS-Updater/1.0');
+            curl_setopt($ch, CURLOPT_TIMEOUT, 60);
+            curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, true);
+            $zip_data = curl_exec($ch);
+            $http_status = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            $curl_err = curl_error($ch);
+            curl_close($ch);
+
+            if ($http_status === 200 && $zip_data) {
+                file_put_contents($zip_tmp, $zip_data);
+                $log[] = "Paket rilis berhasil diunduh (" . round(strlen($zip_data)/1024, 1) . " KB).";
+
+                if (class_exists('ZipArchive')) {
+                    $zip = new ZipArchive();
+                    if ($zip->open($zip_tmp) === true) {
+                        $extract_dir = sys_get_temp_dir() . '/qios_extracted_' . time();
+                        $zip->extractTo($extract_dir);
+                        $zip->close();
+
+                        // Temukan folder hasil ekstrak (biasanya QiOS-main)
+                        $inner_folders = glob($extract_dir . '/*', GLOB_ONLYDIR);
+                        $source_folder = !empty($inner_folders) ? $inner_folders[0] : $extract_dir;
+
+                        // Salin semua file baru ke root_dir
+                        $iterator = new RecursiveIteratorIterator(
+                            new RecursiveDirectoryIterator($source_folder, RecursiveDirectoryIterator::SKIP_DOTS),
+                            RecursiveIteratorIterator::SELF_FIRST
+                        );
+
+                        foreach ($iterator as $item) {
+                            $sub_path = substr($item->getPathname(), strlen($source_folder));
+                            $target_file = $root_dir . $sub_path;
+
+                            // Jangan timpa file konfigurasi database lokal
+                            if (strpos($sub_path, '/config/database.php') !== false && file_exists($target_file)) {
+                                continue;
+                            }
+
+                            if ($item->isDir()) {
+                                if (!is_dir($target_file)) {
+                                    @mkdir($target_file, 0775, true);
+                                }
+                            } else {
+                                @copy($item->getPathname(), $target_file);
+                            }
+                        }
+
+                        $log[] = "Pembaruan file berhasil diterapkan ke direktori web server.";
+                        $success = true;
+
+                        // Simpan file versi commit terakhir
+                        if (!empty($remote_commit_full)) {
+                            @file_put_contents($root_dir . '/.qios_version', json_encode([
+                                'commit'  => substr($remote_commit_full, 0, 7),
+                                'updated' => date('d M Y H:i:s')
+                            ]));
+                        }
+                    } else {
+                        $log[] = "Gagal membuka file arsip update ZIP.";
+                    }
+                } else {
+                    $log[] = "PHP ZipArchive extension tidak tersedia.";
+                }
+                @unlink($zip_tmp);
+            } else {
+                $log[] = "Gagal mengunduh arsip dari GitHub (HTTP $http_status). " . $curl_err;
             }
         }
 
