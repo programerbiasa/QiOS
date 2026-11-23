@@ -70,8 +70,10 @@ function http_fetch($url) {
     $opts = [
         'http' => [
             'method' => 'GET',
-            'header' => "User-Agent: QiOS-Updater/1.0 (RaspberryPi; Linux)
-Accept: application/vnd.github.v3+json
+            'header' => "User-Agent: QiOS-Updater/1.0 (RaspberryPi; Linux)
+
+Accept: application/vnd.github.v3+json
+
 ",
             'timeout' => 12
         ],
@@ -281,7 +283,7 @@ switch ($action) {
                 $unzip_res = run_cmd("unzip -q -o '{$zip_tmp}' -d '{$extract_dir}'", $root_dir);
                 if ($unzip_res['code'] !== 0) {
                     // Fallback python unzip jika unzip CLI belum ada
-                    $py_unzip = run_cmd("python3 -c 'import zipfile; zipfile.ZipFile("{$zip_tmp}").extractall("{$extract_dir}")'", $root_dir);
+                    $py_unzip = run_cmd("python3 -c \"import zipfile; zipfile.ZipFile('{$zip_tmp}').extractall('{$extract_dir}')\"", $root_dir);
                 }
 
                 $inner_folders = glob($extract_dir . '/*', GLOB_ONLYDIR);
