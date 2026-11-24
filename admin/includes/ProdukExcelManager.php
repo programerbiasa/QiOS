@@ -319,20 +319,29 @@ class ProdukExcelManager {
 
         $zip->close();
 
-        // Stream file ke browser
-        if (file_exists($tmpFile)) {
+        // Stream file ke browser dengan proteksi pembersihan output buffer
+        if (file_exists($tmpFile) && filesize($tmpFile) > 500) {
+            // Bersihkan semua buffer output agar file binary tidak corrupt
+            while (ob_get_level() > 0) {
+                ob_end_clean();
+            }
+
             $filename = 'Template_Import_Barang_QiOS_' . date('Ymd_His') . '.xlsx';
+            header('Content-Description: File Transfer');
             header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
             header('Content-Disposition: attachment; filename="' . $filename . '"');
-            header('Content-Length: ' . filesize($tmpFile));
-            header('Cache-Control: max-age=0');
+            header('Content-Transfer-Encoding: binary');
+            header('Expires: 0');
+            header('Cache-Control: must-revalidate, post-check=0, pre-check=0');
             header('Pragma: public');
+            header('Content-Length: ' . filesize($tmpFile));
+            
             readfile($tmpFile);
             @unlink($tmpFile);
             exit;
         } else {
-            header('HTTP/1.1 500 Internal Server Error');
-            echo 'File template tidak ditemukan.';
+            // Jika zip gagal terbentuk atau kosong, fallback ke CSV yang dijamin 100% jalan
+            self::downloadCsvTemplate($kategoriList, $satuanList);
             exit;
         }
     }
