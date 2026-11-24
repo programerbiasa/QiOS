@@ -78,12 +78,18 @@ class ProdukExcelManager {
         }
         $strSatValidation = implode(',', $cleanSats);
 
+        // Cek apakah ekstensi ZipArchive terpasang di PHP
+        if (!class_exists('ZipArchive')) {
+            // Fallback Cerdas: Jika PHP server tidak memiliki modul php-zip, buatkan template format CSV/Excel kompatibel
+            self::downloadCsvTemplate($kategoriList, $satuanList);
+            exit;
+        }
+
         // Buat file temporer ZIP
         $tmpFile = tempnam(sys_get_temp_dir(), 'qios_tpl_') . '.xlsx';
         $zip = new ZipArchive();
         if ($zip->open($tmpFile, ZipArchive::CREATE | ZipArchive::OVERWRITE) !== true) {
-            header('HTTP/1.1 500 Internal Server Error');
-            echo 'Gagal membuat file template Excel di server.';
+            self::downloadCsvTemplate($kategoriList, $satuanList);
             exit;
         }
 
@@ -342,7 +348,26 @@ class ProdukExcelManager {
         $updateExisting = !empty($options['update_existing']);
 
         if (!file_exists($filePath) || !is_readable($filePath)) {
-            throw new Exception("File Excel tidak ditemukan atau tidak dapat dibaca di server.");
+            throw new Exception("File dokumen tidak ditemukan atau tidak dapat dibaca di server.");
+        }
+
+        // Cek jika file berupa CSV
+        $ext = strtolower(pathinfo($filePath, PATHINFO_EXTENSION));
+        if ($ext === 'csv' || !class_exists('ZipArchive')) {
+            // Coba buka sebagai CSV
+            $handle = @fopen($filePath, 'r');
+            if ($handle !== false) {
+                $firstBytes = fread($handle, 4);
+                fclose($handle);
+                // Jika bukan zip header (PK..), proses sebagai CSV
+                if (substr($firstBytes, 0, 2) !== 'PK') {
+                    return self::importFromCsv($pdo, $filePath, $options);
+                }
+            }
+        }
+
+        if (!class_exists('ZipArchive')) {
+            throw new Exception("Server belum mengaktifkan ekstensi PHP ZipArchive. Silakan unggah format CSV.");
         }
 
         $zip = new ZipArchive();
@@ -925,4 +950,190 @@ class ProdukExcelManager {
 
         return null;
     }
+    /**
+     * Fallback Template CSV jika modul php-zip belum aktif di PHP server
+     * Langsung kompatibel dan bisa dibuka dengan Microsoft Excel
+     */
+    public static function downloadCsvTemplate(array $kategoriList, array $satuanList) {
+        $filename = 'Template_Import_Barang_QiOS_' . date('Ymd_His') . '.csv';
+        header('Content-Type: text/csv; charset=utf-8');
+        header('Content-Disposition: attachment; filename="' . $filename . '"');
+        header('Cache-Control: max-age=0');
+        header('Pragma: public');
+
+        $out = fopen('php://output', 'w');
+        // UTF-8 BOM agar terbaca rapi dengan aksen/simbol di Excel
+        fputs($out, "ï»¿");
+
+        // Header Kolom
+        fputcsv($out, [
+            'No',
+            'Barcode / Kode Unik',
+            'Kategori Produk (Pilih Salah Satu)',
+            'Satuan Barang (Pilih Salah Satu)',
+            'Nama Produk / Barang (*Wajib)',
+            'Harga Jual (Rp) (*Wajib)',
+            'Jumlah Stok Awal (*Wajib)',
+            'Deskripsi / Catatan'
+        ]);
+
+        // Baris Contoh 1
+        $katContoh1 = $kategoriList[0] ?? 'Makanan';
+        $satContoh1 = $satuanList[0] ?? 'Pcs';
+        fputcsv($out, [
+            '1',
+            '8992761111015',
+            $katContoh1,
+            $satContoh1,
+            'Indomie Goreng Spesial',
+            '3500',
+            '50',
+            'Dus isi 40'
+        ]);
+
+        // Baris Contoh 2
+        $katContoh2 = $kategoriList[1] ?? 'Minuman';
+        $satContoh2 = $satuanList[1] ?? 'Btl';
+        fputcsv($out, [
+            '2',
+            '8991002101015',
+            $katContoh2,
+            $satContoh2,
+            'Teh Pucuk Harum 350ml',
+            '4000',
+            '100',
+            'Karton isi 24'
+        ]);
+
+        // Baris Contoh 3
+        fputcsv($out, [
+            '3',
+            '',
+            $katContoh1,
+            $satContoh1,
+            'Jajan Gorengan Tempe',
+            '1000',
+            '25',
+            'Tanpa Barcode'
+        ]);
+
+        fclose($out);
+        exit;
+    }
+
+    /**
+     * Import Produk dari Berkas CSV
+     */
+    public static function importFromCsv(PDO $pdo, $filePath, array $options = []) {
+        $updateExisting = !empty($options['update_existing']);
+        $handle = fopen($filePath, 'r');
+        if ($handle === false) {
+            throw new Exception("Gagal membuka file CSV.");
+        }
+
+        // Buat map kategori & satuan
+        $katMap = [];
+        $stmtK = $pdo->query("SELECT id, LOWER(nama_kategori) AS nk FROM kategori");
+        while ($rk = $stmtK->fetch()) {
+            $katMap[$rk['nk']] = (int)$rk['id'];
+        }
+
+        $satMap = [];
+        $stmtS = $pdo->query("SELECT id, LOWER(kode_satuan) AS ks FROM satuan");
+        while ($rs = $stmtS->fetch()) {
+            $satMap[$rs['ks']] = (int)$rs['id'];
+        }
+
+        $inserted = 0;
+        $updated = 0;
+        $errors = [];
+        $lineNum = 0;
+
+        while (($row = fgetcsv($handle, 2000, ",")) !== false) {
+            $lineNum++;
+            // Lewati header baris 1
+            if ($lineNum === 1) {
+                continue;
+            }
+            if (empty($row) || (count($row) === 1 && trim($row[0]) === '')) {
+                continue;
+            }
+
+            // Kolom CSV: No(0), Barcode(1), Kategori(2), Satuan(3), Nama Produk(4), Harga(5), Stok(6), Deskripsi(7)
+            $barcode    = isset($row[1]) ? trim($row[1]) : '';
+            $namaKat    = isset($row[2]) ? strtolower(trim($row[2])) : '';
+            $namaSat    = isset($row[3]) ? strtolower(trim($row[3])) : '';
+            $namaProduk = isset($row[4]) ? trim($row[4]) : '';
+            $hargaRaw   = isset($row[5]) ? trim($row[5]) : '0';
+            $stokRaw    = isset($row[6]) ? trim($row[6]) : '0';
+            $deskripsi  = isset($row[7]) ? trim($row[7]) : '';
+
+            // Jika kolom geser (misal tidak ada No)
+            if (empty($namaProduk) && !empty($row[3]) && is_numeric(str_replace(['.', ','], '', $row[4] ?? ''))) {
+                $namaProduk = trim($row[3]);
+                $hargaRaw = trim($row[4]);
+                $stokRaw = trim($row[5] ?? '0');
+            }
+
+            if (empty($namaProduk)) {
+                continue;
+            }
+
+            $harga = (float)str_replace(['Rp', '.', ' ', ','], ['', '', '', '.'], $hargaRaw);
+            $stok  = (int)str_replace(['.', ','], '', $stokRaw);
+
+            // Kategori ID
+            $katId = $katMap[$namaKat] ?? null;
+            if (!$katId && !empty($namaKat)) {
+                $stK = $pdo->prepare("INSERT INTO kategori (nama_kategori) VALUES (?)");
+                $stK->execute([ucwords($namaKat)]);
+                $katId = (int)$pdo->lastInsertId();
+                $katMap[$namaKat] = $katId;
+            }
+
+            // Satuan ID
+            $satId = $satMap[$namaSat] ?? null;
+            if (!$satId && !empty($namaSat)) {
+                $stS = $pdo->prepare("INSERT INTO satuan (kode_satuan, nama_satuan) VALUES (?, ?)");
+                $stS->execute([ucwords($namaSat), ucwords($namaSat)]);
+                $satId = (int)$pdo->lastInsertId();
+                $satMap[$namaSat] = $satId;
+            }
+
+            // Cek duplikasi produk
+            $existingId = null;
+            if (!empty($barcode)) {
+                $stE = $pdo->prepare("SELECT id FROM produk WHERE barcode = ? LIMIT 1");
+                $stE->execute([$barcode]);
+                $ex = $stE->fetch();
+                if ($ex) $existingId = (int)$ex['id'];
+            }
+            if (!$existingId) {
+                $stE2 = $pdo->prepare("SELECT id FROM produk WHERE LOWER(nama_produk) = ? LIMIT 1");
+                $stE2->execute([strtolower($namaProduk)]);
+                $ex2 = $stE2->fetch();
+                if ($ex2) $existingId = (int)$ex2['id'];
+            }
+
+            if ($existingId) {
+                if ($updateExisting) {
+                    $stU = $pdo->prepare("UPDATE produk SET kategori_id = ?, satuan_id = ?, nama_produk = ?, barcode = ?, harga = ?, stok = ?, deskripsi = ? WHERE id = ?");
+                    $stU->execute([$katId, $satId, $namaProduk, $barcode ?: null, $harga, $stok, $deskripsi, $existingId]);
+                    $updated++;
+                }
+            } else {
+                $stI = $pdo->prepare("INSERT INTO produk (kategori_id, satuan_id, nama_produk, barcode, harga, stok, deskripsi) VALUES (?, ?, ?, ?, ?, ?, ?)");
+                $stI->execute([$katId, $satId, $namaProduk, $barcode ?: null, $harga, $stok, $deskripsi]);
+                $inserted++;
+            }
+        }
+        fclose($handle);
+
+        return [
+            'inserted' => $inserted,
+            'updated'  => $updated,
+            'errors'   => $errors
+        ];
+    }
+
 }
