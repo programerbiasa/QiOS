@@ -1,35 +1,15 @@
-# Executables & Binaries
-*.exe
-*.dll
-*.so
-*.dylib
-dist/
-build/
-*.spec
+# Web App QiOS .gitignore
 
-# Python
-__pycache__/
-*.py[cod]
-*$py.class
+# Environment & Config Sensitif Lokal
 *.env
-venv/
-.venv/
-env/
+config/database.local.php
 
-# Flutter / Dart
-.dart_tool/
-.flutter-plugins
-.flutter-plugins-dependencies
-.packages
-build/
+# Backups Arsip Besar
+backups/*.zip
+backups/*.tar.gz
+backups/*.sql
 
-# Node / JS
-node_modules/
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-
-# IDE & Editor files
+# Editor & System Files
 .vscode/
 .idea/
 *.swp
@@ -37,12 +17,9 @@ yarn-error.log*
 *~
 .DS_Store
 Thumbs.db
+ehthumbs.db
 
-# Logs & temp files
+# Logs & Temporary Files
 *.log
-cookie*.txt
-temp/
 tmp/
-backups/*.zip
-backups/*.sql
-backups/*.tar.gz
+temp/
