@@ -1,0 +1,109 @@
+#tag Module
+Protected Module AppUpdater
+	#tag Property, Flags = &h0
+		Public RepoOwner As String = "programerbiasa"
+	#tag EndProperty
+
+	#tag Property, Flags = &h0
+		Public RepoName As String = "QiOS"
+	#tag EndProperty
+
+	#tag Property, Flags = &h0
+		Public CurrentVersion As String = "v1.0.0"
+	#tag EndProperty
+
+	#tag Method, Flags = &h0
+		Public Sub CheckForUpdate(interactive As Boolean = False)
+		  Dim socket As New URLConnection
+		  socket.RequestHeader("User-Agent") = "QiOS-Desktop-POS"
+		  
+		  Dim apiUrl As String = "https://api.github.com/repos/" + RepoOwner + "/" + RepoName + "/releases/latest"
+		  
+		  Try
+		    Dim response As String = socket.SendSync("GET", apiUrl, 12)
+		    Dim root As New JSONItem(response)
+		    
+		    If root.HasKey("tag_name") Then
+		      Dim remoteTag As String = root.Value("tag_name")
+		      Dim releaseNotes As String = ""
+		      If root.HasKey("body") Then releaseNotes = root.Value("body")
+		      
+		      Dim downloadUrl As String = ""
+		      If root.HasKey("assets") Then
+		        Dim assets As JSONItem = root.Value("assets")
+		        For i As Integer = 0 To assets.Count - 1
+		          Dim asset As JSONItem = assets.Value(i)
+		          Dim aName As String = asset.Value("name")
+		          If Right(aName, 4) = ".exe" Or Right(aName, 4) = ".zip" Then
+		            downloadUrl = asset.Value("browser_download_url")
+		            Exit For
+		          End If
+		        Next
+		      End If
+		      
+		      If remoteTag <> CurrentVersion And downloadUrl <> "" Then
+		        Dim d As New MessageDialog
+		        d.Title = "Pembaruan QiOS"
+		        d.Message = "Versi Baru Ditemukan: " + remoteTag
+		        d.Explanation = "Catatan Pembaruan:" + EndOfLine + releaseNotes + EndOfLine + EndOfLine + "Apakah Anda ingin mengunduh dan memperbarui sekarang?"
+		        d.ActionButton.Caption = "Perbarui Sekarang"
+		        d.CancelButton.Visible = True
+		        d.CancelButton.Caption = "Nanti"
+		        
+		        Dim btn As MessageDialogButton = d.ShowModal
+		        If btn = d.ActionButton Then
+		          ApplyUpdate(downloadUrl)
+		        End If
+		      Else
+		        If interactive Then
+		          MessageBox("Aplikasi QiOS Anda sudah versi paling mutakhir (" + CurrentVersion + ").")
+		        End If
+		      End If
+		    End If
+		  Catch err As RuntimeException
+		    If interactive Then
+		      MessageBox("Gagal memeriksa pembaruan: " + err.Message)
+		    End If
+		  End Try
+		End Sub
+	#tag EndMethod
+
+	#tag Method, Flags = &h0
+		Public Sub ApplyUpdate(url As String)
+		  Dim socket As New URLConnection
+		  socket.RequestHeader("User-Agent") = "QiOS-Desktop-POS"
+		  
+		  Dim tempExe As FolderItem = SpecialFolder.Temporary.Child("QiOS_update.exe")
+		  If tempExe.Exists Then tempExe.Delete
+		  
+		  Try
+		    socket.SendSync("GET", url, tempExe, 90)
+		    
+		    If tempExe.Exists And tempExe.Length > 10000 Then
+		      Dim targetExe As FolderItem = App.ExecutableFile
+		      Dim batFile As FolderItem = SpecialFolder.Temporary.Child("qios_patch.bat")
+		      
+		      Dim q As String = Chr(34)
+		      Dim script As String = "@echo off" + EndOfLine + _
+		        "timeout /t 1 /nobreak > nul" + EndOfLine + _
+		        "copy /y " + q + tempExe.NativePath + q + " " + q + targetExe.NativePath + q + EndOfLine + _
+		        "start " + q + q + " " + q + targetExe.NativePath + q + EndOfLine + _
+		        "del " + q + tempExe.NativePath + q + EndOfLine + _
+		        "del " + q + "%~f0" + q
+		      
+		      Dim tos As TextOutputStream = TextOutputStream.Create(batFile)
+		      tos.Write(script)
+		      tos.Close
+		      
+		      batFile.Open
+		      Quit
+		    Else
+		      MessageBox("Gagal mengunduh berkas update. Silakan ulangi.")
+		    End If
+		  Catch err As RuntimeException
+		    MessageBox("Error pembaruan: " + err.Message)
+		  End Try
+		End Sub
+	#tag EndMethod
+End Module
+#tag EndModule
