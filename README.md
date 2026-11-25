@@ -1,4 +1,4 @@
-# Sistem POS Kasir & Kios Digital Cendekia (Dark Mode Edition)
+# Sistem POS Kasir & Kios Digital Cendekia 
 
 Aplikasi Web **Point of Sale (POS) Kasir & Manajemen Kios** berbasis PHP Native + MariaDB/MySQL dengan antarmuka bertema gelap (*Dark Mode* profesional), cepat, dan responsif.
 
