@@ -18,6 +18,8 @@ backups/*.sql
 .DS_Store
 Thumbs.db
 ehthumbs.db
+xojo/DebugQiOS - Copy/
+xojo/Builds - QiOS/Windows 64 bit/
 
 # Logs & Temporary Files
 *.log

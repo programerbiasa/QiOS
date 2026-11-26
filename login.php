@@ -167,6 +167,13 @@ $theme_key  = function_exists('get_app_theme') ? get_app_theme() : 'midnight';
 <body>
 
 <div class="login-card position-relative">
+    <!-- Tombol Download Client Desktop Windows -->
+    <button type="button" class="btn btn-outline-secondary btn-sm rounded-circle position-absolute top-0 start-0 m-3 z-3 shadow" 
+            style="width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; background: var(--bg-secondary) !important; border: 1px solid var(--border-color) !important;" 
+            data-bs-toggle="modal" data-bs-target="#modalDownloadClient" title="Download Aplikasi Kasir Windows (QiOS Client)">
+        <i class="bi bi-windows text-info fs-5"></i>
+    </button>
+
     <!-- Tombol Pengaturan IP Server -->
     <button type="button" class="btn btn-outline-secondary btn-sm rounded-circle position-absolute top-0 end-0 m-3 z-3 shadow" 
             style="width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; background: var(--bg-secondary) !important; border: 1px solid var(--border-color) !important;" 
@@ -226,6 +233,13 @@ $theme_key  = function_exists('get_app_theme') ? get_app_theme() : 'midnight';
             <button type="submit" class="btn btn-primary w-100 py-2 rounded-3 fw-bold shadow-sm mb-3">
                 <i class="bi bi-box-arrow-in-right me-1"></i> Masuk Sekarang
             </button>
+
+            <!-- Tombol / Menu Download Aplikasi Desktop Kasir -->
+            <button type="button" class="btn btn-outline-info w-100 py-2 rounded-3 fw-semibold shadow-sm mb-2 d-flex align-items-center justify-content-center gap-2" 
+                    data-bs-toggle="modal" data-bs-target="#modalDownloadClient">
+                <i class="bi bi-windows"></i>
+                <span>Download Desktop Kasir (Windows)</span>
+            </button>
         </form>
 
         <!-- Footer Keamanan & Identitas Aplikasi -->
@@ -236,6 +250,87 @@ $theme_key  = function_exists('get_app_theme') ? get_app_theme() : 'midnight';
             </div>
             <div class="text-muted" style="font-size: 0.75rem;">
                 &copy; <?= date('Y') ?> QiOS Cendekia. Terlindungi Enkripsi Sesi.
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Download Aplikasi Desktop Kasir (Windows) -->
+<div class="modal fade" id="modalDownloadClient" tabindex="-1" aria-labelledby="modalDownloadClientLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content text-start shadow-lg rounded-4">
+            <div class="modal-header pb-3">
+                <h5 class="modal-title fw-bold d-flex align-items-center" id="modalDownloadClientLabel">
+                    <i class="bi bi-windows text-info me-2"></i> Download QiOS Desktop Client
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-4">
+                <!-- Banner info aplikasi -->
+                <div class="d-flex align-items-center gap-3 p-3 rounded-3 mb-3" style="background: var(--bg-secondary) !important; border: 1px solid var(--border-color) !important;">
+                    <img src="assets/images/qios_app_icon.png" alt="Icon QiOS" style="width: 56px; height: 56px; object-fit: contain;" class="rounded-3 shadow-sm">
+                    <div>
+                        <h6 class="fw-bold mb-1 text-white">QiOS Desktop POS v1.0.0</h6>
+                        <p class="text-secondary small mb-2">Aplikasi kasir & kasir mandiri native Windows 64-bit dengan auto-sync ke server Raspberry Pi ini.</p>
+                        <div class="d-flex flex-wrap gap-1">
+                            <span class="badge bg-primary-subtle text-primary border border-primary-subtle" style="font-size: 0.7rem;"><i class="bi bi-cpu me-1"></i> Windows 64-bit</span>
+                            <span class="badge bg-success-subtle text-success border border-success-subtle" style="font-size: 0.7rem;"><i class="bi bi-hdd me-1"></i> ~16 MB</span>
+                            <span class="badge bg-info-subtle text-info border border-info-subtle" style="font-size: 0.7rem;"><i class="bi bi-printer me-1"></i> Thermal POS & Scanner</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Opsi Download -->
+                <label class="form-label small fw-bold mb-2">Pilih Sumber Unduhan:</label>
+                
+                <!-- Opsi 1: Server Raspberry Pi (Lokal) -->
+                <a href="download.php" class="text-decoration-none d-block mb-3">
+                    <div class="p-3 rounded-3 border d-flex justify-content-between align-items-center" style="background: var(--bg-header) !important; border-color: var(--border-color) !important;">
+                        <div class="d-flex align-items-center gap-3">
+                            <div class="rounded-circle p-2 bg-success bg-opacity-10 text-success d-flex align-items-center justify-content-center" style="width: 44px; height: 44px;">
+                                <i class="bi bi-hdd-network-fill fs-5"></i>
+                            </div>
+                            <div>
+                                <div class="fw-bold text-white mb-0">Unduh Langsung dari Raspberry Pi</div>
+                                <div class="text-secondary small" style="font-size: 0.75rem;">Sangat cepat via jaringan LAN/WiFi lokal (Offline Ready)</div>
+                            </div>
+                        </div>
+                        <span class="btn btn-sm btn-success px-3 rounded-pill fw-bold">
+                            <i class="bi bi-download me-1"></i> Unduh
+                        </span>
+                    </div>
+                </a>
+
+                <!-- Opsi 2: Repositori Resmi GitHub (Online) -->
+                <a href="https://github.com/programerbiasa/QiOS/raw/main/xojo/Builds%20-%20QiOS/Installer/QiOS_Setup_v1.0.0_x64.exe" target="_blank" rel="noopener noreferrer" class="text-decoration-none d-block mb-3">
+                    <div class="p-3 rounded-3 border d-flex justify-content-between align-items-center" style="background: var(--bg-header) !important; border-color: var(--border-color) !important;">
+                        <div class="d-flex align-items-center gap-3">
+                            <div class="rounded-circle p-2 bg-primary bg-opacity-10 text-primary d-flex align-items-center justify-content-center" style="width: 44px; height: 44px;">
+                                <i class="bi bi-github fs-5"></i>
+                            </div>
+                            <div>
+                                <div class="fw-bold text-white mb-0">Unduh dari GitHub (Online)</div>
+                                <div class="text-secondary small" style="font-size: 0.75rem;">Repositori publik programerbiasa/QiOS</div>
+                            </div>
+                        </div>
+                        <span class="btn btn-sm btn-outline-primary px-3 rounded-pill fw-bold">
+                            <i class="bi bi-box-arrow-up-right me-1"></i> GitHub
+                        </span>
+                    </div>
+                </a>
+
+                <!-- Panduan Singkat -->
+                <div class="p-3 rounded-3 bg-secondary bg-opacity-10 small border border-secondary border-opacity-25 text-secondary">
+                    <div class="fw-bold text-white mb-1"><i class="bi bi-info-circle me-1 text-info"></i> Petunjuk Singkat:</div>
+                    <ol class="mb-0 ps-3">
+                        <li>Unduh dan buka file <code>QiOS_Setup_v1.0.0_x64.exe</code> di PC kasir Windows Anda.</li>
+                        <li>Ikuti petunjuk installer sampai selesai terpasang di desktop.</li>
+                        <li>Alamat IP Server otomatis disinkronkan ke <strong><code><?= e($_SERVER['HTTP_HOST'] ?? '127.0.0.1') ?></code></strong>.</li>
+                    </ol>
+                </div>
+            </div>
+            <div class="modal-footer pt-3">
+                <button type="button" class="btn btn-secondary btn-sm rounded-pill px-4" data-bs-dismiss="modal">Tutup</button>
             </div>
         </div>
     </div>
